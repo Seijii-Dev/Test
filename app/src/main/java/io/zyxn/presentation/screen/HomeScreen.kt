@@ -1,0 +1,1741 @@
+package io.zyxn.presentation.screen
+
+import android.content.ClipData
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import io.zyxn.i18n.strings
+import io.zyxn.i18n.getLocaleStrings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
+import androidx.compose.material3.PrimaryScrollableTabRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberBottomSheetState
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.toClipEntry
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastForEachIndexed
+import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import io.zyxn.CrashHandler
+import io.zyxn.R
+import io.zyxn.api.data.editor.EditorAction
+import io.zyxn.api.data.editor.Save
+import io.zyxn.api.data.editor.SaveAs
+import io.zyxn.api.data.editor.WorkspaceTab
+import io.zyxn.api.data.file.KxFile
+import io.zyxn.api.data.file.wrap
+import io.zyxn.api.data.preferences.LocalAppSettings
+import io.zyxn.api.data.runner.FileRunRequest
+import io.zyxn.api.data.runner.FileRunnerRegistry
+import io.zyxn.api.ui.LocalToastHostState
+import io.zyxn.api.ui.ScreenRegistry
+import io.zyxn.api.ui.ToastHostState
+import io.zyxn.api.ui.ToolbarAction
+import io.zyxn.api.ui.ToolbarCategory
+import io.zyxn.api.ui.ToolbarRegistry
+import io.zyxn.api.ui.showFailureToast
+import io.zyxn.api.ui.theme.GoogleSansRounded
+import io.zyxn.api.ui.theme.JetBrainsMonoFontFamily
+import io.zyxn.api.ui.theme.LocalIsDarkMode
+import io.zyxn.api.util.share
+import io.zyxn.api.util.shareText
+import io.zyxn.api.util.thenIf
+import io.zyxn.app.icons.CloseFullscreen
+import io.zyxn.app.icons.DeleteSweep
+import io.zyxn.app.icons.Redo
+import io.zyxn.app.icons.Save
+import io.zyxn.app.icons.Undo
+import io.zyxn.core.globalOf
+import io.zyxn.data.editor.EditorStateRegistry
+import io.zyxn.data.editor.ZyxnEditorColorScheme
+import io.zyxn.data.editor.applyEditorSettings
+import io.zyxn.data.file.openWith
+import io.zyxn.data.file.share
+import io.zyxn.data.file.shareableUri
+import io.zyxn.data.preferences.FontManager
+import io.zyxn.data.runner.FileRunnerContextImpl
+import io.zyxn.data.runner.TerminalCommandRunner
+import io.zyxn.icons.Zyxn
+import io.zyxn.icons.ZyxnIcons
+import io.zyxn.lsp.LspActivityStore
+import io.zyxn.lsp.LspManager
+import io.zyxn.presentation.components.AnimatedTab
+import io.zyxn.presentation.components.CloseProject
+import io.zyxn.presentation.components.Copy
+import io.zyxn.presentation.components.CopyPath
+import io.zyxn.presentation.components.Cut
+import io.zyxn.presentation.components.Delete
+import io.zyxn.presentation.components.ExpressiveMenuItem
+import io.zyxn.presentation.components.FileActionBottomSheet
+import io.zyxn.presentation.components.FileSystemImage
+import io.zyxn.presentation.components.LspStatusBar
+import io.zyxn.presentation.components.NewDirectory
+import io.zyxn.presentation.components.NewFile
+import io.zyxn.presentation.components.OpenWith
+import io.zyxn.presentation.components.Paste
+import io.zyxn.presentation.components.Rename
+import io.zyxn.presentation.components.Share
+import io.zyxn.presentation.components.UnsupportedFileDialog
+import io.zyxn.presentation.components.WelcomeScreen
+import io.zyxn.presentation.components.dialogs.CloseUnsavedTabDialog
+import io.zyxn.presentation.components.dialogs.DeleteFileDialog
+import io.zyxn.presentation.components.dialogs.ImageShareDialog
+import io.zyxn.presentation.components.dialogs.NewFileDialog
+import io.zyxn.presentation.components.dialogs.NewFolderDialog
+import io.zyxn.presentation.components.dialogs.RenameFileDialog
+import io.zyxn.presentation.components.dialogs.ShareDialog
+import io.zyxn.presentation.components.filetree.FileNode
+import io.zyxn.presentation.components.filetree.FileTreeDrawer
+import io.zyxn.presentation.navigation.LocalNavigator
+import io.zyxn.presentation.navigation.Screen
+import io.zyxn.presentation.viewmodel.EditorEvent
+import io.zyxn.presentation.viewmodel.EditorViewModel
+import io.zyxn.presentation.viewmodel.FileTreeViewModel
+import io.zyxn.presentation.viewmodel.HomeViewModel
+import io.zyxn.ui.provider.LocalTreeSitter
+import io.github.rosemoe.sora.compose.CodeEditor
+import io.github.rosemoe.sora.compose.CodeEditorState
+import io.github.rosemoe.sora.compose.ExperimentalEditorApi
+import io.github.rosemoe.sora.compose.content
+import io.github.rosemoe.sora.event.ContentChangeEvent
+import io.github.rosemoe.sora.event.TextSizeChangeEvent
+import io.github.rosemoe.sora.graphics.inlayHint.ColorInlayHintRenderer
+import io.github.rosemoe.sora.graphics.inlayHint.TextInlayHintRenderer
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import net.engawapg.lib.zoomable.rememberZoomState
+import net.engawapg.lib.zoomable.zoomable
+import org.koin.compose.koinInject
+import org.koin.compose.viewmodel.koinViewModel
+import kotlin.time.Duration.Companion.milliseconds
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalEditorApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    homeViewModel: HomeViewModel = koinViewModel(),
+    editorViewModel: EditorViewModel = koinViewModel(),
+    fileTreeViewModel: FileTreeViewModel = koinViewModel(),
+) {
+    val context = LocalContext.current
+    val clipboard = LocalClipboard.current
+    val scope = rememberCoroutineScope()
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val registry: EditorStateRegistry = koinInject()
+
+    val toastHostState = LocalToastHostState.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    var selectedNodeForAction by remember { mutableStateOf<FileNode?>(null) }
+
+    val jbFontFamily = remember { JetBrainsMonoFontFamily }
+
+    val editorUiState by editorViewModel.uiState.collectAsStateWithLifecycle()
+    val openTabs by editorViewModel.openTabs.collectAsStateWithLifecycle()
+    val activeTab by editorViewModel.activeTab.collectAsStateWithLifecycle()
+
+    val navigator = LocalNavigator.current
+    val fileRunnerRegistry = globalOf<FileRunnerRegistry>()
+    val screenRegistry = globalOf<ScreenRegistry>()
+    val terminalRunner: TerminalCommandRunner = koinInject()
+
+    val runnableTab = activeTab as? WorkspaceTab.TextFile
+    val canRun = runnableTab != null &&
+            fileRunnerRegistry.supports(
+                FileRunRequest(runnableTab.file, runnableTab.file.uri, runnableTab.projectUri, runnableTab.id)
+            )
+
+    val onRunFile: (() -> Unit)? = if (runnableTab != null && canRun) {
+        {
+            val tab = runnableTab
+            val request = FileRunRequest(tab.file, tab.file.uri, tab.projectUri, tab.id)
+            val runner = fileRunnerRegistry.runnerFor(request)
+            if (runner != null) {
+                scope.launch {
+                    runCatching {
+                        editorViewModel.saveFileSuspending(tab.file)
+                        runner.run(
+                            request,
+                            FileRunnerContextImpl(
+                                terminalRunner = terminalRunner,
+                                navigator = navigator,
+                                screenRegistry = screenRegistry,
+                                openTab = editorViewModel::openTab,
+                            )
+                        )
+                    }.onFailure { t ->
+                        val s = getLocaleStrings()
+                        toastHostState.showFailureToast(s.couldNotOpenFile(t.localizedMessage))
+                    }
+                }
+            }
+        }
+    } else {
+        null
+    }
+
+    LaunchedEffect(editorViewModel.events, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            editorViewModel.events.collect { event ->
+                when (event) {
+                    is EditorEvent.ShowError -> toastHostState.showFailureToast(event.error)
+                    is EditorEvent.ShowMessage -> toastHostState.showToast(event.message)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(fileTreeViewModel.errorEvent, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            fileTreeViewModel.errorEvent.collect { error ->
+                toastHostState.showFailureToast(error)
+            }
+        }
+    }
+
+    editorUiState.unsupportedFileAlert?.let { alert ->
+        UnsupportedFileDialog(
+            fileName = alert.file.name,
+            onDismiss = {
+                if (alert.projectUri != null) {
+                    scope.launch { drawerState.open() }
+                }
+                editorViewModel.dismissUnsupportedFileDialog()
+            }
+        )
+    }
+
+    val directoryPicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                runCatching {
+                    context.contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+                }.onFailure { it.printStackTrace() }
+                val file = DocumentFile.fromTreeUri(context, uri)!!
+                fileTreeViewModel.addRootNode(file.uri)
+                scope.launch { drawerState.open() }
+            }
+        }
+
+    val newFileLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            if (uri != null) {
+                editorViewModel.openFile(uri)
+            }
+        }
+
+    val saveAsLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+            if (uri != null) {
+                val newFile = uri.wrap()
+                if (activeTab != null) {
+                    editorViewModel.handleEditorActions(
+                        SaveAs(
+                            oldTabId = activeTab!!.id,
+                            newFile = newFile
+                        )
+                    )
+                } else {
+                    scope.launch {
+                        val s = getLocaleStrings()
+                        toastHostState.showFailureToast(s.installationFailed("No active tab"))
+                    }
+                }
+            }
+        }
+
+    var showShareDialog by remember { mutableStateOf(false) }
+
+    FileTreeDrawer(
+        viewModel = fileTreeViewModel,
+        gesturesEnabled = openTabs.isEmpty() || drawerState.isOpen,
+        onFileClick = { node, rootNode ->
+            scope.launch { drawerState.close() }
+            editorViewModel.openFile(node.uri, rootNode.uri)
+        },
+        onFileLongClick = { node, _ ->
+            selectedNodeForAction = node
+        },
+        drawerState = drawerState,
+        screenContent = {
+            val scrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+
+            Scaffold(
+                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                containerColor = Color.Transparent,
+                topBar = {
+                    val toolbarActions = globalOf<ToolbarRegistry>().actions()
+
+                    HomeTopBar(
+                        scrollBehavior = scrollBehavior,
+                        drawerState = drawerState,
+                        scope = scope,
+                        openTabs = openTabs,
+                        activeTab = activeTab,
+                        toolbarActions = toolbarActions,
+                        runnable = canRun,
+                        onRun = onRunFile,
+                        onTabClick = editorViewModel::selectTab,
+                        onTabClose = editorViewModel::closeTab,
+                        onTabCloseOthers = editorViewModel::closeOtherTabs,
+                        onTabCloseAll = editorViewModel::closeAllTabs,
+                        onAction = editorViewModel::handleEditorActions,
+                        onSaveAsClick = {
+                            if (activeTab is WorkspaceTab.TextFile) {
+                                saveAsLauncher.launch(activeTab!!.title)
+                            }
+                        },
+                        onMenuAction = { action ->
+                            when (action) {
+                                MenuAction.Share -> {
+                                    showShareDialog = true
+                                }
+                            }
+                        }
+                    )
+                }
+            ) { paddingValues ->
+                MainContent(
+                    paddingValues = paddingValues,
+                    openTabs = openTabs,
+                    editorViewModel = editorViewModel,
+                    activeTab = activeTab,
+                    jbFontFamily = jbFontFamily,
+                    registry = registry,
+                    onOpenProjectClick = {
+                        directoryPicker.launch(null)
+                    },
+                    onNewFileClick = {
+                        newFileLauncher.launch("untitled.txt")
+                    }
+                )
+            }
+        }
+    )
+
+    if (showShareDialog) {
+        ShareDialogs(
+            activeTab = activeTab,
+            registry = registry,
+            context = context,
+            scope = scope,
+            toastHostState = toastHostState,
+            onDismiss = { showShareDialog = false }
+        )
+    }
+    editorUiState.pendingCloseTabId?.let { tabId ->
+        val tab = openTabs.find { it.id == tabId } as? WorkspaceTab.TextFile
+        if (tab != null) {
+            CloseUnsavedTabDialog(
+                fileName = tab.title,
+                onDismiss = { editorViewModel.dismissCloseTab() },
+                onSaveAndClose = { editorViewModel.confirmCloseTab(tabId) },
+                onDiscard = { editorViewModel.discardCloseTab(tabId) }
+            )
+        }
+    }
+
+    var nodeToDelete by remember { mutableStateOf<FileNode?>(null) }
+    var nodeToRename by remember { mutableStateOf<FileNode?>(null) }
+
+    var nodeToCreateFile by remember { mutableStateOf<FileNode?>(null) }
+    var nodeToCreateFolder by remember { mutableStateOf<FileNode?>(null) }
+
+    selectedNodeForAction?.let { node ->
+        FileNodeActionSheet(
+            node = node,
+            isProject = fileTreeViewModel.isRootNode(node),
+            fileTreeViewModel = fileTreeViewModel,
+            editorViewModel = editorViewModel,
+            scope = scope,
+            clipboard = clipboard,
+            onDismissRequest = { selectedNodeForAction = null },
+            onDeleteNode = { nodeToDelete = it },
+            onRenameNode = { nodeToRename = it },
+            onCreateFile = { nodeToCreateFile = it },
+            onCreateFolder = { nodeToCreateFolder = it },
+        )
+    }
+
+    nodeToRename?.let { targetNode ->
+        RenameFileDialog(
+            file = targetNode.file,
+            onDismiss = { nodeToRename = null },
+            onConfirm = { newName ->
+                fileTreeViewModel.renameNode(
+                    node = targetNode,
+                    newName = newName,
+                    onSuccess = { newUri ->
+                        editorViewModel.handleFileRenamed(targetNode.uri, newUri)
+                        nodeToRename = null
+                    },
+                    onError = { errorMessage ->
+                        nodeToRename = null
+                        scope.launch {
+                            toastHostState.showFailureToast(errorMessage)
+                        }
+                    }
+                )
+            }
+        )
+    }
+
+    nodeToDelete?.let { targetNode ->
+        DeleteFileDialog(
+            file = targetNode.file,
+            onDismiss = { nodeToDelete = null },
+            onConfirm = {
+                fileTreeViewModel.deleteNode(
+                    node = targetNode,
+                    onSuccess = {
+                        editorViewModel.handleFileDeleted(targetNode.uri)
+                        nodeToDelete = null
+                    },
+                    onError = { errorMessage ->
+                        nodeToDelete = null
+                        scope.launch {
+                            toastHostState.showFailureToast(errorMessage)
+                        }
+                    }
+                )
+            }
+        )
+    }
+
+    nodeToCreateFile?.let { targetNode ->
+        NewFileDialog(
+            onDismiss = { nodeToCreateFile = null },
+            onConfirm = { fileName ->
+                fileTreeViewModel.createFile(
+                    parent = targetNode,
+                    fileName = fileName,
+                    onSuccess = { newKxFile ->
+                        nodeToCreateFile = null
+                        editorViewModel.openFile(newKxFile.uri)
+                    },
+                    onError = { errorMessage ->
+                        nodeToCreateFile = null
+                        scope.launch {
+                            toastHostState.showFailureToast(errorMessage)
+                        }
+                    }
+                )
+            }
+        )
+    }
+
+    nodeToCreateFolder?.let { targetNode ->
+        NewFolderDialog(
+            onDismiss = { nodeToCreateFolder = null },
+            onConfirm = { folderName ->
+                fileTreeViewModel.createFolder(
+                    parent = targetNode,
+                    folderName = folderName,
+                    onSuccess = { nodeToCreateFolder = null },
+                    onError = { errorMessage ->
+                        nodeToCreateFolder = null
+                        scope.launch {
+                            toastHostState.showFailureToast(errorMessage)
+                        }
+                    }
+                )
+            }
+        )
+    }
+}
+
+private suspend fun copyPath(file: KxFile, clipboard: Clipboard) {
+    clipboard.setClipEntry(ClipData.newPlainText("zyxn", (file.uri.path ?: file.uri.toString())).toClipEntry())
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FileNodeActionSheet(
+    node: FileNode,
+    isProject: Boolean,
+    fileTreeViewModel: FileTreeViewModel,
+    editorViewModel: EditorViewModel,
+    scope: CoroutineScope,
+    clipboard: Clipboard,
+    onDismissRequest: () -> Unit,
+    onDeleteNode: (FileNode) -> Unit,
+    onRenameNode: (FileNode) -> Unit,
+    onCreateFile: (FileNode) -> Unit,
+    onCreateFolder: (FileNode) -> Unit,
+) {
+    val sheetState = rememberBottomSheetState(
+        initialValue = Hidden,
+        enabledValues = setOf(Hidden, Expanded)
+    )
+
+    val dismiss: () -> Unit = {
+        scope.launch { sheetState.hide() }.invokeOnCompletion {
+            if (!sheetState.isVisible) {
+                onDismissRequest()
+            }
+        }
+    }
+
+    FileActionBottomSheet(
+        file = node.file,
+        isProject = isProject,
+        sheetState = sheetState,
+        onDismissRequest = onDismissRequest,
+        onFileAction = { action ->
+            when (action) {
+                is Copy -> {
+                    fileTreeViewModel.copyNode(node)
+                    scope.launch {
+                        clipboard.setClipEntry(
+                            ClipData.newRawUri("file", action.file.shareableUri)
+                                .toClipEntry()
+                        )
+                    }
+                    dismiss()
+                }
+
+                is Cut -> {
+                    fileTreeViewModel.cutNode(node)
+                    scope.launch {
+                        clipboard.setClipEntry(
+                            ClipData.newRawUri("file", action.file.shareableUri)
+                                .toClipEntry()
+                        )
+                    }
+                    dismiss()
+                }
+
+                is CopyPath -> {
+                    scope.launch {
+                        copyPath(action.file, clipboard)
+                        dismiss()
+                    }
+                }
+
+                is Delete -> {
+                    onDeleteNode(node)
+                    dismiss()
+                }
+
+                is Rename -> {
+                    onRenameNode(node)
+                    dismiss()
+                }
+
+                is OpenWith -> action.file.openWith()
+                is Share -> action.file.share()
+
+                is Paste -> {
+                    pasteFromClipboard(
+                        destinationUri = action.destination.uri,
+                        fileTreeViewModel = fileTreeViewModel,
+                        editorViewModel = editorViewModel,
+                        clipboard = clipboard,
+                        scope = scope
+                    )
+                    dismiss()
+                }
+            }
+        },
+        onDirectoryAction = { action ->
+            when (action) {
+                is CloseProject -> {
+                    fileTreeViewModel.removeRootNode(action.file)
+                    dismiss()
+                }
+
+                is CopyPath -> {
+                    scope.launch {
+                        copyPath(action.file, clipboard)
+                        dismiss()
+                    }
+                }
+
+                is Delete -> {
+                    onDeleteNode(node)
+                    dismiss()
+                }
+
+                is Rename -> {
+                    onRenameNode(node)
+                    dismiss()
+                }
+
+                is NewFile -> {
+                    onCreateFile(node)
+                    dismiss()
+                }
+
+                is NewDirectory -> {
+                    onCreateFolder(node)
+                    dismiss()
+                }
+
+                is Paste -> {
+                    pasteFromClipboard(
+                        destinationUri = action.destination.uri,
+                        fileTreeViewModel = fileTreeViewModel,
+                        editorViewModel = editorViewModel,
+                        clipboard = clipboard,
+                        scope = scope
+                    )
+                    dismiss()
+                }
+            }
+        }
+    )
+}
+
+private fun pasteFromClipboard(
+    destinationUri: Uri,
+    fileTreeViewModel: FileTreeViewModel,
+    editorViewModel: EditorViewModel,
+    clipboard: Clipboard,
+    scope: CoroutineScope,
+) {
+    fileTreeViewModel
+        .visibleNodes
+        .value
+        .firstNotNullOfOrNull {
+            if (it.node.uri == destinationUri) {
+                it.node
+            } else {
+                null
+            }
+        }?.let { parentNode ->
+            scope.launch {
+                val clipUri =
+                    clipboard.getClipEntry()?.clipData?.getItemAt(0)?.uri
+                fileTreeViewModel.pasteNode(
+                    targetParent = parentNode,
+                    clipboardUri = clipUri,
+                    onMoveCompleted = editorViewModel::handleFileRenamed
+                )
+            }
+        }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ShareDialogs(
+    activeTab: WorkspaceTab?,
+    registry: EditorStateRegistry,
+    context: Context,
+    scope: CoroutineScope,
+    toastHostState: ToastHostState,
+    onDismiss: () -> Unit,
+) {
+    when (val tab = activeTab) {
+        is WorkspaceTab.TextFile -> {
+            val editorState = registry[tab.id]
+            val hasSelection = editorState?.cursor?.isSelected ?: false
+
+            ShareDialog(
+                fileName = tab.title,
+                hasSelection = hasSelection,
+                onDismiss = onDismiss,
+                onShareSelection = {
+                    onDismiss()
+                    val cursor = editorState?.cursor
+                    val text = editorState?.text
+
+                    if (cursor != null && text != null && hasSelection) {
+                        val start = minOf(cursor.left, cursor.right)
+                        val end = maxOf(cursor.left, cursor.right)
+                        val selectedText = text.substring(start, end)
+
+                        shareText(selectedText)
+                    } else {
+                        scope.launch {
+                            val s = getLocaleStrings()
+                            toastHostState.showFailureToast(s.noTextSelectedToShare)
+                        }
+                    }
+                },
+                onShareFileText = {
+                    scope.launch(Dispatchers.IO) {
+                        val wholeText = context.contentResolver.openInputStream(
+                            tab.file.uri
+                        )?.bufferedReader()?.readText() ?: ""
+                        withContext(Dispatchers.Main.immediate) {
+                            shareText(wholeText)
+                        }
+                    }
+                    onDismiss()
+                },
+                onShareFile = {
+                    onDismiss()
+                    tab.file.share()
+                }
+            )
+        }
+
+        is WorkspaceTab.ImageFile -> {
+            ImageShareDialog(
+                fileName = tab.title,
+                imageUri = tab.uri,
+                onDismiss = onDismiss,
+                onShare = {
+                    onDismiss()
+                    tab.uri.share()
+                }
+            )
+        }
+
+        else -> Unit
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun HomeTopBar(
+    scrollBehavior: TopAppBarScrollBehavior,
+    drawerState: DrawerState,
+    scope: CoroutineScope,
+    openTabs: ImmutableList<WorkspaceTab>,
+    activeTab: WorkspaceTab?,
+    toolbarActions: List<ToolbarAction>,
+    runnable: Boolean,
+    onRun: (() -> Unit)?,
+    onTabClick: (String) -> Unit,
+    onTabClose: (String) -> Unit,
+    onTabCloseOthers: (String) -> Unit,
+    onTabCloseAll: () -> Unit,
+    onAction: (EditorAction) -> Unit,
+    onMenuAction: (MenuAction) -> Unit,
+    onSaveAsClick: () -> Unit
+) {
+    val gradientColors = persistentListOf(
+        MaterialTheme.colorScheme.primaryContainer,
+        Color.Transparent
+    )
+
+    val brush = remember(gradientColors) {
+        Brush.verticalGradient(colors = gradientColors)
+    }
+
+    val isAmoledDarkMode = LocalAppSettings.current.appearance.amoledDarkMode && LocalIsDarkMode.current
+
+    Column(
+        modifier = Modifier
+            .thenIf(!isAmoledDarkMode) {
+                background(brush)
+            }
+    ) {
+        TopAppBar(
+            scrollBehavior = scrollBehavior,
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = Color.Transparent,
+                scrolledContainerColor = Color.Transparent
+            ),
+            title = {},
+            navigationIcon = {
+                IconButton(
+                    onClick = { scope.launch { drawerState.open() } },
+                    shapes = IconButtonDefaults.shapes(
+                        shape = MaterialTheme.shapes.medium,
+                        pressedShape = MaterialTheme.shapes.small
+                    ),
+                    colors = IconButtonDefaults.iconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    modifier = Modifier
+                        .padding(start = 12.dp)
+                        .size(48.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.folder_code_24px),
+                        contentDescription = "File Explorer"
+                    )
+                }
+            },
+            actions = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    val appearanceSettings = LocalAppSettings.current.appearance
+
+                    if (activeTab is WorkspaceTab.TextFile) {
+                        FilledIconButton(
+                            shapes = IconButtonDefaults.shapes(),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            onClick = { onAction(Save(activeTab.file)) }
+                        ) {
+                            Icon(
+                                Icons.Outlined.Save,
+                                contentDescription = "Save File"
+                            )
+                        }
+                    }
+
+                    if (runnable && onRun != null) {
+                        FilledIconButton(
+                            shapes = IconButtonDefaults.shapes(),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            onClick = onRun
+                        ) {
+                            Icon(
+                                Icons.Rounded.PlayArrow,
+                                contentDescription = "Run File"
+                            )
+                        }
+                    }
+
+                    if (appearanceSettings.showTerminalInTopbar) {
+                        val navigator = LocalNavigator.current
+                        FilledIconButton(
+                            shapes = IconButtonDefaults.shapes(),
+                            colors = IconButtonDefaults.filledIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                contentColor = MaterialTheme.colorScheme.onSurface
+                            ),
+                            onClick = { navigator.navigateTo(Screen.Terminal) }
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.terminal_2_24px),
+                                contentDescription = "Terminal"
+                            )
+                        }
+                    }
+
+                    MainMenu(
+                        activeTab = activeTab,
+                        toolbarActions = toolbarActions,
+                        onAction = onMenuAction,
+                        onEditorAction = onAction,
+                        onSaveAsClick = onSaveAsClick
+                    )
+                }
+            }
+        )
+
+        if (openTabs.isNotEmpty()) {
+            EditorTabs(
+                openTabs = openTabs,
+                activeTab = activeTab,
+                onTabClick = onTabClick,
+                onTabClose = onTabClose,
+                onTabCloseOthers = onTabCloseOthers,
+                onTabCloseAll = onTabCloseAll
+            )
+        }
+    }
+}
+
+private sealed interface MenuAction {
+    data object Share : MenuAction
+}
+
+@Composable
+private fun MainMenu(
+    activeTab: WorkspaceTab?,
+    toolbarActions: List<ToolbarAction>,
+    onAction: (MenuAction) -> Unit,
+    onEditorAction: (EditorAction) -> Unit,
+    onSaveAsClick: () -> Unit
+) {
+    val navigator = LocalNavigator.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    val byCategory = toolbarActions.groupBy { it.category }
+    val currentFileActions = byCategory[ToolbarCategory.CurrentFile].orEmpty().sortedBy { it.priority }
+    val workspaceActions = byCategory[ToolbarCategory.Workspace].orEmpty().sortedBy { it.priority }
+    val customCategories = byCategory.keys
+        .minus(setOf(ToolbarCategory.CurrentFile, ToolbarCategory.Workspace, ToolbarCategory.Plugins))
+        .sorted()
+    val pluginsActions = byCategory[ToolbarCategory.Plugins].orEmpty().sortedBy { it.priority }
+    val hasCustomOrPlugins = customCategories.isNotEmpty() || pluginsActions.isNotEmpty()
+
+    Box {
+        FilledIconButton(
+            shapes = IconButtonDefaults.shapes(),
+            colors = IconButtonDefaults.filledIconButtonColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                contentColor = MaterialTheme.colorScheme.onSurface
+            ),
+            onClick = { showMenu = true }
+        ) {
+            Icon(
+                Icons.Rounded.MoreVert,
+                contentDescription = "More Options"
+            )
+        }
+
+        MaterialTheme(
+            shapes = MaterialTheme.shapes.copy(
+                extraSmall = RoundedCornerShape(20.dp)
+            )
+        ) {
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                modifier = Modifier.widthIn(min = 180.dp)
+            ) {
+                if (activeTab is WorkspaceTab.TextFile || activeTab is WorkspaceTab.ImageFile) {
+                    MenuSectionHeader("Current File")
+
+                    if (activeTab is WorkspaceTab.TextFile) {
+                        ExpressiveMenuItem(
+                            text = "Save As...",
+                            icon = painterResource(R.drawable.save_as_24px),
+                            onClick = {
+                                showMenu = false
+                                onSaveAsClick()
+                            }
+                        )
+                    }
+
+                    ExpressiveMenuItem(
+                        text = "Share",
+                        icon = painterResource(R.drawable.share_24px),
+                        onClick = {
+                            showMenu = false
+                            onAction(MenuAction.Share)
+                        }
+                    )
+
+                    MenuActionItems(
+                        actions = currentFileActions,
+                        onDismiss = { showMenu = false }
+                    )
+
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
+
+                MenuSectionHeader("Workspace")
+
+                ExpressiveMenuItem(
+                    text = "Terminal",
+                    icon = painterResource(R.drawable.terminal_2_24px),
+                    onClick = {
+                        showMenu = false
+                        navigator.navigateTo(Screen.Terminal)
+                    }
+                )
+
+                ExpressiveMenuItem(
+                    text = "Settings",
+                    icon = painterResource(R.drawable.settings_24px),
+                    onClick = {
+                        showMenu = false
+                        navigator.navigateTo(Screen.Settings)
+                    }
+                )
+
+                MenuActionItems(
+                    actions = workspaceActions,
+                    onDismiss = { showMenu = false }
+                )
+
+                if (hasCustomOrPlugins) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
+                }
+
+                customCategories.forEach { category ->
+                    MenuSectionHeader(category.name)
+                    MenuActionItems(
+                        actions = byCategory[category]!!.sortedBy { it.priority },
+                        onDismiss = { showMenu = false }
+                    )
+                }
+
+                if (pluginsActions.isNotEmpty()) {
+                    if (customCategories.isNotEmpty()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 16.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                        )
+                    }
+
+                    MenuSectionHeader("Plugins")
+
+                    MenuActionItems(
+                        actions = pluginsActions,
+                        onDismiss = { showMenu = false }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuSectionHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        fontFamily = GoogleSansRounded,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
+
+@Composable
+private fun MenuActionItems(actions: List<ToolbarAction>, onDismiss: () -> Unit) {
+    actions.forEach { action ->
+        ExpressiveMenuItem(
+            text = action.label,
+            icon = action.icon,
+            onClick = {
+                onDismiss()
+                action.onClick()
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditorTabs(
+    openTabs: ImmutableList<WorkspaceTab>,
+    activeTab: WorkspaceTab?,
+    onTabClick: (String) -> Unit,
+    onTabClose: (String) -> Unit,
+    onTabCloseOthers: (String) -> Unit,
+    onTabCloseAll: () -> Unit
+) {
+    val activeTabIndex = remember(openTabs, activeTab) {
+        val index = openTabs.indexOfFirst { it.id == activeTab?.id }
+        if (index != -1) index else 0
+    }
+
+    PrimaryScrollableTabRow(
+        selectedTabIndex = activeTabIndex,
+        containerColor = Color.Transparent,
+        edgePadding = 4.dp,
+        indicator = {},
+        divider = {},
+        modifier = Modifier.verticalScroll(rememberScrollState())
+    ) {
+        val hapticFeedback = LocalHapticFeedback.current
+
+        openTabs.fastForEachIndexed { index, tab ->
+            val isActive = index == activeTabIndex
+            var isMenuExpanded by remember { mutableStateOf(false) }
+
+            val isModified = tab is WorkspaceTab.TextFile && tab.hasUnsavedChanges
+
+            AnimatedTab(
+                index = index,
+                selectedIndex = activeTabIndex,
+                onClick = {
+                    if (isActive) {
+                        isMenuExpanded = true
+                    } else {
+                        onTabClick(tab.id)
+                    }
+                },
+            ) {
+                Box {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .padding(
+                                start = 6.dp,
+                                top = 2.dp,
+                                bottom = 2.dp,
+                                end = 2.dp
+                            )
+                            .animateContentSize()
+                    ) {
+                        Text(
+                            text = tab.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontFamily = GoogleSansRounded,
+                            fontWeight = if (index == activeTabIndex) FontWeight.SemiBold else FontWeight.Medium
+                        )
+
+                        AnimatedVisibility(
+                            visible = isModified,
+                            enter = fadeIn() + scaleIn(),
+                            exit = fadeOut() + scaleOut()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(LocalContentColor.current)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clip(CircleShape)
+                                .clickable { onTabClose(tab.id) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = "Close ${tab.title}",
+                                modifier = Modifier.size(14.dp),
+                                tint = LocalContentColor.current
+                            )
+                        }
+                    }
+
+                    MaterialTheme(
+                        shapes = MaterialTheme.shapes.copy(
+                            extraSmall = RoundedCornerShape(16.dp)
+                        )
+                    ) {
+                        DropdownMenu(
+                            expanded = isMenuExpanded,
+                            onDismissRequest = { isMenuExpanded = false },
+                            modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Close",
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                onClick = { onTabClose(tab.id); isMenuExpanded = false },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+
+                            HorizontalDivider(modifier = Modifier.padding(horizontal = 8.dp))
+
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Close Others",
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                onClick = { onTabCloseOthers(tab.id); isMenuExpanded = false },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.CloseFullscreen,
+                                        contentDescription = null
+                                    )
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Close All",
+                                        fontFamily = GoogleSansRounded,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                },
+                                onClick = { onTabCloseAll(); isMenuExpanded = false },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.DeleteSweep,
+                                        contentDescription = null
+                                    )
+                                },
+                                colors = MenuDefaults.itemColors(
+                                    textColor = MaterialTheme.colorScheme.error,
+                                    leadingIconColor = MaterialTheme.colorScheme.error
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MainContent(
+    paddingValues: PaddingValues,
+    editorViewModel: EditorViewModel,
+    openTabs: ImmutableList<WorkspaceTab>,
+    activeTab: WorkspaceTab?,
+    jbFontFamily: FontFamily,
+    registry: EditorStateRegistry,
+    onOpenProjectClick: () -> Unit,
+    onNewFileClick: () -> Unit
+) {
+    if (openTabs.isEmpty()) {
+        WelcomeScreen(
+            onNewFileClick = onNewFileClick,
+            onOpenProjectClick = onOpenProjectClick,
+            modifier = Modifier.padding(paddingValues)
+        )
+    } else {
+        val pagerState = rememberPagerState(pageCount = { openTabs.size })
+
+        LaunchedEffect(activeTab) {
+            val index = openTabs.indexOfFirst { it == activeTab }
+            if (index != -1 && index != pagerState.currentPage) {
+                pagerState.scrollToPage(index)
+            }
+        }
+
+        val isDarkMode = LocalIsDarkMode.current
+        val colorScheme = MaterialTheme.colorScheme
+        val selectionColors = LocalTextSelectionColors.current
+
+        EditorPager(
+            pagerState = pagerState,
+            openTabs = openTabs,
+            paddingValues = paddingValues,
+            jbFontFamily = jbFontFamily,
+            isDarkMode = isDarkMode,
+            colorScheme = colorScheme,
+            editorViewModel = editorViewModel,
+            selectionColors = selectionColors,
+            registry = registry,
+            onNewFileClick = onNewFileClick,
+            onOpenProjectClick = onOpenProjectClick
+        )
+    }
+}
+
+@Composable
+fun EditorEmptyState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = ZyxnIcons.Zyxn,
+                contentDescription = null,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
+                text = "K L Y X",
+                style = MaterialTheme.typography.headlineMedium,
+                fontFamily = GoogleSansRounded,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
+                letterSpacing = 8.sp
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Swipe from the left edge\nto open the explorer",
+                style = MaterialTheme.typography.bodyLarge,
+                fontFamily = GoogleSansRounded,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                textAlign = TextAlign.Center,
+                lineHeight = 24.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditorPager(
+    pagerState: PagerState,
+    openTabs: ImmutableList<WorkspaceTab>,
+    paddingValues: PaddingValues,
+    jbFontFamily: FontFamily,
+    isDarkMode: Boolean,
+    colorScheme: ColorScheme,
+    selectionColors: TextSelectionColors,
+    editorViewModel: EditorViewModel,
+    registry: EditorStateRegistry,
+    onNewFileClick: () -> Unit,
+    onOpenProjectClick: () -> Unit
+) {
+    CrashHandler.currentTabId = null
+    HorizontalPager(
+        state = pagerState,
+        userScrollEnabled = false,
+        beyondViewportPageCount = 1,
+        key = { openTabs[it].id },
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
+            .imePadding()
+    ) { pageIndex ->
+        when (val tab = openTabs[pageIndex]) {
+            is WorkspaceTab.TextFile -> {
+                TextFileEditor(
+                    tab = tab,
+                    jbFontFamily = jbFontFamily,
+                    isDarkMode = isDarkMode,
+                    colorScheme = colorScheme,
+                    selectionColors = selectionColors,
+                    editorViewModel = editorViewModel,
+                    registry = registry
+                )
+            }
+
+            is WorkspaceTab.ImageFile -> {
+                val zoomState = rememberZoomState(maxScale = 100f)
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                ) {
+                    FileSystemImage(
+                        uri = tab.uri,
+                        contentDescription = tab.title,
+                        contentScale = ContentScale.Fit,
+                        filterQuality = FilterQuality.High,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zoomable(zoomState = zoomState)
+                    )
+                }
+            }
+
+            is WorkspaceTab.Welcome -> {
+                WelcomeScreen(
+                    onNewFileClick = onNewFileClick,
+                    onOpenProjectClick = onOpenProjectClick
+                )
+            }
+
+            is WorkspaceTab.Custom -> {
+                CrashHandler.currentTabId = tab.id
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clipToBounds()
+                ) {
+                    tab.content()
+                }
+            }
+        }
+    }
+}
+
+@OptIn(FlowPreview::class)
+@Composable
+private fun TextFileEditor(
+    tab: WorkspaceTab.TextFile,
+    jbFontFamily: FontFamily,
+    isDarkMode: Boolean,
+    colorScheme: ColorScheme,
+    selectionColors: TextSelectionColors,
+    editorViewModel: EditorViewModel,
+    registry: EditorStateRegistry
+) {
+    val settings = LocalAppSettings.current.editor
+    val density = LocalDensity.current
+    val treeSitter = LocalTreeSitter.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val state = remember(tab.id) {
+        registry[tab.id] ?: run {
+            val baseline = registry.getBaselineText(tab.id) ?: ""
+            CodeEditorState(context, scope).also {
+                it.setText(baseline)
+                it.registerInlayHintRenderers(
+                    TextInlayHintRenderer.DefaultInstance,
+                    ColorInlayHintRenderer.DefaultInstance
+                )
+                registry.register(tab.id, it)
+            }
+        }
+    }
+
+    val lspManager: LspManager = koinInject()
+    val lspActivityStore: LspActivityStore = koinInject()
+    val scheme = remember(isDarkMode, colorScheme, selectionColors) {
+        ZyxnEditorColorScheme(isDarkMode, colorScheme, selectionColors)
+    }
+
+    LaunchedEffect(settings) {
+        state.applyEditorSettings(settings)
+    }
+
+    var isAccessoryBarVisible by remember { mutableStateOf(true) }
+
+    LaunchedEffect(tab.id, state, treeSitter) {
+        state.lineNumberMarginLeft = with(density) { 5.dp.toPx() }
+        val baseLanguage = treeSitter.getLanguageForExtension(tab.file.extension)
+        lspManager.onEditorCreated(tab.id, tab.file, tab.projectUri, state, baseLanguage)
+    }
+
+    LaunchedEffect(scheme, state.editorLanguage, state) {
+        state.colorScheme = scheme
+    }
+
+    LaunchedEffect(tab.id, state) {
+        state.content
+            .drop(1)
+            .debounce(500.milliseconds)
+            .collect { content ->
+                val baseline = registry.getBaselineText(tab.id) ?: ""
+                editorViewModel.markTabModified(tab.id, content.toString() != baseline)
+            }
+    }
+
+    LaunchedEffect(state) {
+        state.subscribeAlways<TextSizeChangeEvent> {
+            val newSizeSp = with(density) { it.newTextSize.toSp().value }
+            if (settings.fontSize != newSizeSp) {
+                editorViewModel.updateFontSize(newSizeSp)
+            }
+        }
+    }
+
+    key(tab.id) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            ) {
+                val fontManager: FontManager = koinInject()
+                var currentFont by remember { mutableStateOf(JetBrainsMonoFontFamily) }
+                LaunchedEffect(settings.customFontUri) {
+                    currentFont = fontManager.getFontFamily(settings.customFontUri)
+                }
+
+                CodeEditor(
+                    state = state,
+                    fontFamily = currentFont,
+                    fontSize = settings.fontSize.sp,
+                    modifier = Modifier.fillMaxSize(),
+                    wordWrap = settings.wordWrap
+                )
+
+                this@Column.AnimatedVisibility(
+                    visible = !isAccessoryBarVisible,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+                    enter = fadeIn() + scaleIn(),
+                    exit = fadeOut() + scaleOut()
+                ) {
+                    FilledIconButton(
+                        onClick = { isAccessoryBarVisible = true },
+                        modifier = Modifier.size(44.dp),
+                        colors = IconButtonDefaults.filledIconButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.primary
+                        )
+                    ) {
+                        Icon(
+                            Icons.Rounded.KeyboardArrowUp,
+                            contentDescription = "Show Tools",
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            LspStatusBar(lspActivityStore, lspManager)
+
+            AnimatedVisibility(
+                visible = isAccessoryBarVisible,
+                enter = slideInVertically(initialOffsetY = { it }) +
+                        expandVertically(expandFrom = Alignment.Bottom) +
+                        fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) +
+                        shrinkVertically(shrinkTowards = Alignment.Bottom) +
+                        fadeOut()
+            ) {
+                EditorAccessoryBar(
+                    state = state,
+                    fontFamily = jbFontFamily,
+                    onHide = { isAccessoryBarVisible = false }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorAccessoryBar(
+    state: CodeEditorState,
+    fontFamily: FontFamily,
+    onHide: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var canUndo by remember { mutableStateOf(state.canUndo) }
+    var canRedo by remember { mutableStateOf(state.canRedo) }
+
+    val refreshUndoRedo = {
+        canRedo = state.canRedo
+        canUndo = state.canUndo
+    }
+
+    DisposableEffect(state) {
+        refreshUndoRedo()
+
+        val receipt = state.subscribeAlways<ContentChangeEvent> {
+            refreshUndoRedo()
+        }
+
+        onDispose { receipt.unsubscribe() }
+    }
+
+    val symbols = listOf("{", "}", "(", ")", "[", "]", "<", ">", "=", ";", "\"", "'")
+
+    Surface(
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                IconButton(
+                    onClick = { state.undo(); refreshUndoRedo() },
+                    enabled = canUndo,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.Undo,
+                        contentDescription = "Undo",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { state.redo(); refreshUndoRedo() },
+                    enabled = canRedo,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.Redo,
+                        contentDescription = "Redo",
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                VerticalDivider(
+                    modifier = Modifier
+                        .height(20.dp)
+                        .padding(horizontal = 4.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+
+                AccessoryKeyButton(
+                    text = "TAB",
+                    onClick = {
+                        if (state.snippetController.isInSnippet()) {
+                            state.snippetController.shiftToNextTabStop()
+                        } else {
+                            state.indentOrCommitTab()
+                        }
+                    },
+                    fontFamily = fontFamily,
+                    isWide = true
+                )
+
+                symbols.forEach { symbol ->
+                    AccessoryKeyButton(
+                        text = symbol,
+                        fontFamily = fontFamily,
+                        onClick = { state.insertText(symbol, 1) }
+                    )
+                }
+            }
+
+            var isHiding by remember { mutableStateOf(false) }
+            val rotationAngle by animateFloatAsState(
+                targetValue = if (isHiding) 180f else 0f,
+                animationSpec = tween(durationMillis = 300),
+                label = "arrow_rotation"
+            )
+
+            IconButton(
+                onClick = {
+                    isHiding = true
+                    onHide()
+                },
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.KeyboardArrowDown,
+                    contentDescription = "Hide Toolbar",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .graphicsLayer {
+                            rotationZ = rotationAngle
+                        }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccessoryKeyButton(
+    text: String,
+    fontFamily: FontFamily,
+    onClick: () -> Unit,
+    isWide: Boolean = false
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier
+            .height(36.dp)
+            .widthIn(min = if (isWide) 52.dp else 32.dp)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.titleMedium,
+                fontFamily = fontFamily,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}

@@ -1,0 +1,1 @@
+-keep class io.zyxn.terminal.native.Native { *; }
